@@ -30,3 +30,4 @@ build*/
 
 main
 gxde-lsg
+gxde-lsg_private.*
