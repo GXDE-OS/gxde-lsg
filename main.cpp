@@ -28,9 +28,10 @@ int main(int argc, char *argv[])
 	if (argc > 1) {
 		userName = argv[1];
 	}
-	string programPath = std::filesystem::current_path();
-	//string rootfsPath = programPath + "/gxde-rootfs";
-	string rootfsPath = "/opt/gxde-rootfs/";
+	//string programPath = std::filesystem::current_path();
+	string programPath = Utils::programPath();
+	string rootfsPath = programPath + "/gxde-rootfs";
+	//string rootfsPath = "/opt/gxde-rootfs/";
 	string rootfsTarPath = programPath + "/gxde-rootfs.tar.xz";
 	string containerName = "gxde";
 	if (!std::filesystem::exists(rootfsPath + "/etc/os-version")) {

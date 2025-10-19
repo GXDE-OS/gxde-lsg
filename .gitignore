@@ -31,3 +31,5 @@ build*/
 main
 gxde-lsg
 gxde-lsg_private.*
+build
+build-deb

@@ -95,3 +95,29 @@ void Utils::showHelp()
 	cout << "GXDE LSG" << endl;
 	cout << "一个利用 systemd-nspawn 在其它 Linux 发行版（包括非 Debian 发行版）运行 Debian + GXDE 桌面环境的工具" << endl;
 }
+
+string Utils::programPath()
+{	
+	char l_cCurrentDir[1024];
+	
+	//获取当前程序绝对路径
+	
+	system("pwd");
+	int  l_icnt = readlink("/proc/self/exe", l_cCurrentDir, 1024);
+	if (l_icnt < 0 || l_icnt >= 1024)
+	{
+		printf("***Error***\n");
+		exit(-1);
+	}
+	//获取当前目录绝对路径，即去掉程序名
+	int  i;
+	for (i = l_icnt; i >= 0; --i)
+	{
+		if (l_cCurrentDir[i] == '/')
+		{
+			l_cCurrentDir[i + 1] = '\0';
+			break;
+		}
+	}
+	return string(l_cCurrentDir);
+}

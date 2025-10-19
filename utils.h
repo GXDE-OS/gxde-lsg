@@ -11,6 +11,7 @@ public:
 	static bool checkEnvironment();
 	static bool unpackTar(std::string tarPath, std::string dirPath);
 	static void showHelp();
+	static std::string programPath();
 };
 
 #endif
