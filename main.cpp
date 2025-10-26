@@ -12,7 +12,7 @@ using namespace std;
 int main(int argc, char *argv[])
 {
 	if (argc > 1 && strcmp(argv[1], "--help") == 0) {
-		Utils::showHelp();
+		Utils::showHelp(argv);
 		return 1;
 	}
 	// 判断用户是否使用 root 权限运行程序
@@ -23,17 +23,23 @@ int main(int argc, char *argv[])
 	if (!Utils::checkEnvironment()) {
 		return 1;
 	}
+	cout << "Linux Kernel Version: " << Utils::linuxKernelVersion() << endl;
+	cout << (Container::isLinuxKernelSupportContainer() ? "Support" : "Unsupport") << " this kernel version." << endl;
 	// 获取指定用户 uid
-	string userName = "root";
-	if (argc > 1) {
-		userName = argv[1];
+	string userName = "gxde";
+	if (argc > 1 && strcmp(argv[1], "install-deb") == 0) {
+		return !Utils::callInstallDeb(argc, argv, userName);
 	}
-	//string programPath = std::filesystem::current_path();
 	string programPath = Utils::programPath();
-	string rootfsPath = programPath + "/gxde-rootfs";
-	//string rootfsPath = "/opt/gxde-rootfs/";
-	string rootfsTarPath = programPath + "/gxde-rootfs.tar.xz";
-	string containerName = "gxde";
+	string rootfsPath = Utils::rootfsPath();
+	string rootfsTarPath = Utils::rootfsTarPath();
+	string containerName = CONTAINERNAME;
+	
+	string x11Display = Utils::getEnv("DISPLAY");
+	string waylandDisplay = Utils::getEnv("WAYLAND_DISPLAY");
+	string lang = Utils::getEnv("LANG");
+	string language = Utils::getEnv("LANGUAGE");
+	
 	if (!std::filesystem::exists(rootfsPath + "/etc/os-version")) {
 		cout << rootfsPath << " Not Found!" << endl;
 		cout << "Try to unpack rootfs file: " << rootfsTarPath << endl;
@@ -55,7 +61,13 @@ int main(int argc, char *argv[])
 			std::filesystem::copy_options::overwrite_existing);
 		vector<string> command;
 		command.push_back("startgxde_window");
-		Container::runAppInContainer(containerName, userName, command);
+		Container::runAppInContainer(containerName, 
+			userName, 
+			command, 
+			x11Display, 
+			waylandDisplay,
+			lang,
+			language);
 	}
 	while(Container::isContainerRunning(containerName)){
 		// 只有在 container 停止后才会停止运行程序

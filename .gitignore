@@ -33,3 +33,5 @@ gxde-lsg
 gxde-lsg_private.*
 build
 build-deb
+gxde-lsg-arm64
+

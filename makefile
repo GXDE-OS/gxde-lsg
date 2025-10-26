@@ -3,9 +3,9 @@
 
 CPP      = g++
 CC       = gcc
-OBJ      = utils.o container.o main.o
-LINKOBJ  = utils.o container.o main.o
-CLEANOBJ  =  utils.o container.o main.o gxde-lsg
+OBJ      = main.o container.o utils.o
+LINKOBJ  = main.o container.o utils.o
+CLEANOBJ  =  main.o container.o utils.o gxde-lsg
 LIBS     =  -static
 INCS     =  
 CXXINCS  =  
@@ -24,11 +24,11 @@ clean: clean-custom
 $(BIN): $(OBJ)
 	$(CPP) $(LINKOBJ) -o $(BIN) $(LIBS)
 
-utils.o: utils.cpp utils.h
-	$(CPP) -c utils.cpp -o utils.o $(CXXFLAGS) 
+main.o: main.cpp container.h utils.h
+	$(CPP) -c main.cpp -o main.o $(CXXFLAGS) 
 
 container.o: container.cpp container.h utils.h
 	$(CPP) -c container.cpp -o container.o $(CXXFLAGS) 
 
-main.o: main.cpp container.h utils.h
-	$(CPP) -c main.cpp -o main.o $(CXXFLAGS) 
+utils.o: utils.cpp container.h utils.h
+	$(CPP) -c utils.cpp -o utils.o $(CXXFLAGS) 

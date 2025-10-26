@@ -1,10 +1,49 @@
 #include "utils.h"
+#include "container.h"
 #include <unistd.h>
 #include <sys/wait.h>
 #include <iostream>
 #include <filesystem>
+#include <vector>
+#include <sys/utsname.h>
 
 using namespace std;
+
+string Utils::linuxKernelVersion()
+{
+	struct utsname buffer;
+	if (uname(&buffer) != 0) {
+		return "";
+	}
+	return buffer.release;
+}
+
+bool Utils::callInstallDeb(int argc, char *argv[], string userName)
+{
+	if (!Container::isContainerRunning(CONTAINERNAME)) {
+		cerr << "Container isn't running!" << endl;
+		return false;
+	}
+	if (argc <= 2) {
+		return true;
+	}
+	vector<string> debList;
+	for (int i = 2; i < argc; ++i) {
+		debList.push_back(string(argv[i]));
+	}
+	Container::installApp(CONTAINERNAME, debList, userName);
+	return true;
+}
+
+string Utils::rootfsPath()
+{
+	return programPath() + "/gxde-rootfs";
+}
+
+string Utils::rootfsTarPath()
+{
+	return programPath() + "/gxde-rootfs.tar.xz";
+}
 
 bool Utils::unpackTar(string tarPath, string dirPath)
 {
@@ -90,10 +129,15 @@ int Utils::runCommand(string command, vector<std::string> args, bool isWaiting)
 	return 0;
 }
 
-void Utils::showHelp()
+void Utils::showHelp(char *argv[])
 {
 	cout << "GXDE LSG" << endl;
 	cout << "一个利用 systemd-nspawn 在其它 Linux 发行版（包括非 Debian 发行版）运行 Debian + GXDE 桌面环境的工具" << endl;
+	cout << "https://gitee.com/GXDE-OS/gxde-lsg" << endl;
+	cout << "By gfdgd xi" << endl;
+	
+	cout << "Usage:" << endl;
+	cout << argv[0] << " [COMMAND] [OPTIONS]" << endl;
 }
 
 string Utils::programPath()
@@ -120,4 +164,13 @@ string Utils::programPath()
 		}
 	}
 	return string(l_cCurrentDir);
+}
+
+string Utils::getEnv(string envName)
+{
+	const char* value = getenv(envName.c_str());
+	if (value == nullptr) {
+		return "";
+	}
+	return value;
 }
