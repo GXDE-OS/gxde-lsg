@@ -34,4 +34,6 @@ gxde-lsg_private.*
 build
 build-deb
 gxde-lsg-arm64
-
+*.tar.xz
+*.rpm
+*.deb

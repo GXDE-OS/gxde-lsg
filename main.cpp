@@ -40,6 +40,11 @@ int main(int argc, char *argv[])
 	string lang = Utils::getEnv("LANG");
 	string language = Utils::getEnv("LANGUAGE");
 	
+	if (x11Display == "") {
+		cerr << "$DISPLAY Not Found!" << endl;
+		return 1;
+	}
+	
 	if (!std::filesystem::exists(rootfsPath + "/etc/os-version")) {
 		cout << rootfsPath << " Not Found!" << endl;
 		cout << "Try to unpack rootfs file: " << rootfsTarPath << endl;
