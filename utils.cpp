@@ -9,6 +9,13 @@
 
 using namespace std;
 
+void Utils::loadingKernelModule()
+{
+	system("modprobe kmre-ashmem");
+	system("modprobe kmre-binder");
+	system("modprobe kmre-virtwifi");
+}
+
 string Utils::linuxKernelVersion()
 {
 	struct utsname buffer;

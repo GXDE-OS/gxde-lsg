@@ -24,9 +24,13 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 	cout << "Linux Kernel Version: " << Utils::linuxKernelVersion() << endl;
-	cout << (Container::isLinuxKernelSupportContainer() ? "Support" : "Unsupport") << " this kernel version." << endl;
+	cout << (Container::isLinuxKernelSupportContainer() ? "Support" : "Unsupport") << " systemd in this kernel version." << endl;
 	// 获取指定用户 uid
-	string userName = "gxde";
+	string userName = "gxde";  // 容器内的用户名
+	string localUserName = ""; // 宿主机用户名
+	if (argc > 1) {
+		localUserName = argv[1];
+	}
 	if (argc > 1 && strcmp(argv[1], "install-deb") == 0) {
 		return !Utils::callInstallDeb(argc, argv, userName);
 	}
@@ -45,7 +49,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 	
-	if (!std::filesystem::exists(rootfsPath + "/etc/os-version")) {
+	if (!std::filesystem::exists(rootfsPath + "/etc/hostname")) {
 		cout << rootfsPath << " Not Found!" << endl;
 		cout << "Try to unpack rootfs file: " << rootfsTarPath << endl;
 		if (!Utils::unpackTar(rootfsTarPath, rootfsPath)) {
@@ -55,7 +59,7 @@ int main(int argc, char *argv[])
 	}
 	if (!Container::isContainerRunning(containerName)) {
 		// 如果容器已存在，则不重复 loading
-		Container::loadingLinuxContainer(rootfsPath, containerName);
+		Container::loadingLinuxContainer(rootfsPath, containerName, localUserName, Container::isLinuxKernelSupportContainer());
 	}
 	if (Container::isContainerRunning(containerName)) {
 		// 禁用 network manager

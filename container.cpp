@@ -65,7 +65,11 @@ void Container::installApp(string containerName, vector<string> debList, string 
 	runAppInContainer(containerName, useUser, command);
 }
 
-void Container::loadingLinuxContainer(string containerPath, string containerName, bool loadSystemd)
+void Container::loadingLinuxContainer(
+	string containerPath, 
+	string containerName, 
+	std::string localUserName, 
+	bool loadSystemd)
 {
 	// 允许运行 x11 程序
 	system("xhost +");
@@ -82,8 +86,61 @@ void Container::loadingLinuxContainer(string containerPath, string containerName
 	if (std::filesystem::exists("/run/user/1000/pulse/pid")) {
 		args.push_back("--bind-ro=/run/user/1000/pulse/");
 	}
+	// 挂载路径
+	vector<string> path = {"/dev/kvm", "/dev/binder", "/dev/hwbinder", "/dev/vndbinder", 
+		"/dev/ashmem"};
+	for(long unsigned int i = 0; i < path.size(); ++i){
+		string setPath = path[i];
+		if (std::filesystem::exists(setPath)) {
+			args.push_back("--bind=" + setPath);	
+		}
+	}
 	// 挂载 / 和 /home
-	args.push_back("--bind=/:/sd");
+	//args.push_back("--bind=/:/sd");
+	//args.push_back("--bind=/:/home/gxde/sd");
+	args.push_back("--bind=/home:/home/gxde/home");
+	if (localUserName != "") {
+		string homePath = "/home/" + localUserName;
+		if (std::filesystem::exists(homePath + "/Desktop")) {
+			args.push_back("--bind=" + homePath + "/Desktop/:/home/gxde/Desktop");
+		}
+		else if (std::filesystem::exists(homePath + "/桌面")) {
+			args.push_back("--bind=" + homePath + "/Desktop/:/home/gxde/Desktop");
+		}	
+		if (std::filesystem::exists(homePath + "/Videos")) {
+			args.push_back("--bind=" + homePath + "/Videos/:/home/gxde/Videos");
+		}
+		else if (std::filesystem::exists(homePath + "/视频")) {
+			args.push_back("--bind=" + homePath + "/Videos/:/home/gxde/Videos");
+		}
+		if (std::filesystem::exists(homePath + "/Documents")) {
+			args.push_back("--bind=" + homePath + "/Documents/:/home/gxde/Documents");
+		}
+		else if (std::filesystem::exists(homePath + "/文档")) {
+			args.push_back("--bind=" + homePath + "/文档/:/home/gxde/Documents");
+		}
+		if (std::filesystem::exists(homePath + "/Music")) {
+			args.push_back("--bind=" + homePath + "/Music/:/home/gxde/Music");
+		}
+		else if (std::filesystem::exists(homePath + "/音乐")) {
+			args.push_back("--bind=" + homePath + "/音乐/:/home/gxde/Music");
+		}
+		if (std::filesystem::exists(homePath + "/Downloads")) {
+			args.push_back("--bind=" + homePath + "/Downloads/:/home/gxde/Downloads");
+		}
+		else if (std::filesystem::exists(homePath + "/下载")) {
+			args.push_back("--bind=" + homePath + "/下载/:/home/gxde/Downloads");
+		}
+		if (std::filesystem::exists(homePath + "/Pictures")) {
+			args.push_back("--bind=" + homePath + "/Pictures/:/home/gxde/Pictures");
+		}
+		else if (std::filesystem::exists(homePath + "/图片")) {
+			args.push_back("--bind=" + homePath + "/图片/:/home/gxde/Pictures");
+		}
+	}
+	
+	//args.push_back("--bind=/:/home/gxde/host");
+	args.push_back("--bind=/media:/media");
 	// --bind-ro=
 	Utils::runCommand("/usr/bin/systemd-nspawn", args, false);
 	while(!isContainerRunning(containerName)){
@@ -105,8 +162,8 @@ void Container::runAppInContainer(string containerName,
 	args.insert(args.begin(), user);
 	args.insert(args.begin(), "--uid");
 	// 传入环境变量
-	vector<string> envValue = {x11Display, waylandDisplay, lang, language};
-	vector<string> envName = {"DISPLAY", "WAYLAND_DISPLAY", "LANG", "LANGUAGE"};
+	vector<string> envValue = {x11Display, waylandDisplay, lang, language, "/run/user/1000/pulse/native"};
+	vector<string> envName = {"DISPLAY", "WAYLAND_DISPLAY", "LANG", "LANGUAGE", "PULSE_SERVER"};
 	for(long unsigned int i = 0; i < envValue.size(); ++i){
 		string name = envName[i];
 		string value = envValue[i];

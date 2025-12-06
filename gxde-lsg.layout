@@ -1,17 +1,17 @@
 [
     {
-        "caretX": 20,
-        "caretY": 17,
-        "filename": "/home/gfdgd_xi/Desktop/dde15/gxde-lsg/utils.h",
+        "caretX": 5,
+        "caretY": 52,
+        "filename": "/home/gfdgd_xi/Desktop/dde15/gxde-lsg/main.cpp",
         "focused": false,
         "isOpen": true,
         "leftChar": 1,
-        "order": 1,
-        "topLine": 1
+        "order": 0,
+        "topLine": 39
     },
     {
-        "caretX": 7,
-        "caretY": 12,
+        "caretX": 19,
+        "caretY": 16,
         "filename": "/home/gfdgd_xi/Desktop/dde15/gxde-lsg/utils.cpp",
         "focused": false,
         "isOpen": true,
@@ -21,12 +21,22 @@
     },
     {
         "caretX": 2,
-        "caretY": 13,
-        "filename": "/home/gfdgd_xi/Desktop/dde15/gxde-lsg/main.cpp",
+        "caretY": 17,
+        "filename": "/home/gfdgd_xi/Desktop/dde15/gxde-lsg/utils.h",
+        "focused": false,
+        "isOpen": true,
+        "leftChar": 1,
+        "order": 1,
+        "topLine": 1
+    },
+    {
+        "caretX": 3,
+        "caretY": 93,
+        "filename": "/home/gfdgd_xi/Desktop/dde15/gxde-lsg/container.cpp",
         "focused": true,
         "isOpen": true,
         "leftChar": 1,
-        "order": 0,
-        "topLine": 1
+        "order": 3,
+        "topLine": 77
     }
 ]

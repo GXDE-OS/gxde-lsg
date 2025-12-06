@@ -7,7 +7,7 @@
 class Container {
 public:
 	static bool isContainerRunning(std::string containerName);
-	static void loadingLinuxContainer(std::string containerPath, std::string containerName, bool loadSystemd=true);
+	static void loadingLinuxContainer(std::string containerPath, std::string containerName, std::string localUserName, bool loadSystemd=true);
 	static void runAppInContainer(std::string containerName, 
 		std::string user, 
 		std::vector<std::string> command, 
