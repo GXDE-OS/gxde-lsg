@@ -3,13 +3,16 @@
 
 #include <string>
 #include <vector>
+#include "utils.h"
 
 class Container {
 public:
 	static bool isContainerRunning(std::string containerName);
 	// 宿主机 Wayland socket 在容器内的挂载位置
 	static constexpr const char *containerWaylandSocket = "/run/host-wayland/wayland-0";
-	static bool loadingLinuxContainer(std::string containerPath, std::string containerName, std::string localUserName, bool loadSystemd=true, std::string hostWaylandSocket="");
+	static bool loadingLinuxContainer(std::string containerPath, std::string containerName, const HostUser &user, std::string hostname, bool loadSystemd=true, std::string hostWaylandSocket="");
+	// 容器启动前在 rootfs 中创建/同步与宿主机一致的账户，写入 hostname，生成宿主机语言对应的 locale
+	static bool provisionUser(std::string containerPath, const HostUser &user, std::string hostname, std::string lang = "");
 	static std::vector<std::string> desktopSessionCommand(bool waylandSession);
 	static void runAppInContainer(std::string containerName, 
 		std::string user, 
@@ -17,7 +20,8 @@ public:
 		std::string x11Display = "", 
 		std::string waylandDisplay = "",
 		std::string lang = "",
-		std::string language = "");
+		std::string language = "",
+		uid_t uid = 0);
 	static void maskServices(std::string containerName, std::vector<std::string> units);
 	static void runXephyr(std::string containerName, std::string user);
 	static void installApp(std::string containerName, std::vector<std::string> debList, std::string user="root");

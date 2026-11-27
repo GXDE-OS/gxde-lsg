@@ -7,6 +7,8 @@
 #include <vector>
 #include <istream>
 #include <iostream>
+#include <fstream>
+#include <sys/stat.h>
 
 using namespace std;
 
@@ -70,7 +72,8 @@ void Container::installApp(string containerName, vector<string> debList, string 
 bool Container::loadingLinuxContainer(
 	string containerPath, 
 	string containerName, 
-	std::string localUserName, 
+	const HostUser &user,
+	std::string hostname,
 	bool loadSystemd,
 	std::string hostWaylandSocket)
 {
@@ -85,9 +88,16 @@ bool Container::loadingLinuxContainer(
 	args.push_back(containerPath);
 	args.push_back("-M");
 	args.push_back(containerName);
-	// 挂载 pulseaudio
-	if (std::filesystem::exists("/run/user/1000/pulse/pid")) {
-		args.push_back("--bind-ro=/run/user/1000/pulse/");
+	// gxde-dock 带有 cap_ipc_lock 文件能力，不在 nspawn 默认能力边界集内时 exec 会直接 EPERM
+	args.push_back("--capability=CAP_IPC_LOCK");
+	// hostname 继承宿主机
+	if (hostname != "") {
+		args.push_back("--hostname=" + hostname);
+	}
+	// 挂载 pulseaudio（容器内用户与宿主机同 uid，路径一致）
+	string pulseDir = "/run/user/" + std::to_string(user.uid) + "/pulse/";
+	if (std::filesystem::exists(pulseDir + "pid")) {
+		args.push_back("--bind-ro=" + pulseDir);
 	}
 	// 挂载宿主机 Wayland socket，供 --wayland（FlakeWM）会话使用
 	if (hostWaylandSocket != "") {
@@ -108,51 +118,28 @@ bool Container::loadingLinuxContainer(
 			args.push_back("--bind=" + setPath);	
 		}
 	}
-	// 挂载 / 和 /home
-	//args.push_back("--bind=/:/sd");
-	//args.push_back("--bind=/:/home/gxde/sd");
-	args.push_back("--bind=/home:/home/gxde/home");
-	if (localUserName != "") {
-		string homePath = "/home/" + localUserName;
-		if (std::filesystem::exists(homePath + "/Desktop")) {
-			args.push_back("--bind=" + homePath + "/Desktop/:/home/gxde/Desktop");
-		}
-		else if (std::filesystem::exists(homePath + "/桌面")) {
-			args.push_back("--bind=" + homePath + "/Desktop/:/home/gxde/Desktop");
-		}	
-		if (std::filesystem::exists(homePath + "/Videos")) {
-			args.push_back("--bind=" + homePath + "/Videos/:/home/gxde/Videos");
-		}
-		else if (std::filesystem::exists(homePath + "/视频")) {
-			args.push_back("--bind=" + homePath + "/Videos/:/home/gxde/Videos");
-		}
-		if (std::filesystem::exists(homePath + "/Documents")) {
-			args.push_back("--bind=" + homePath + "/Documents/:/home/gxde/Documents");
-		}
-		else if (std::filesystem::exists(homePath + "/文档")) {
-			args.push_back("--bind=" + homePath + "/文档/:/home/gxde/Documents");
-		}
-		if (std::filesystem::exists(homePath + "/Music")) {
-			args.push_back("--bind=" + homePath + "/Music/:/home/gxde/Music");
-		}
-		else if (std::filesystem::exists(homePath + "/音乐")) {
-			args.push_back("--bind=" + homePath + "/音乐/:/home/gxde/Music");
-		}
-		if (std::filesystem::exists(homePath + "/Downloads")) {
-			args.push_back("--bind=" + homePath + "/Downloads/:/home/gxde/Downloads");
-		}
-		else if (std::filesystem::exists(homePath + "/下载")) {
-			args.push_back("--bind=" + homePath + "/下载/:/home/gxde/Downloads");
-		}
-		if (std::filesystem::exists(homePath + "/Pictures")) {
-			args.push_back("--bind=" + homePath + "/Pictures/:/home/gxde/Pictures");
-		}
-		else if (std::filesystem::exists(homePath + "/图片")) {
-			args.push_back("--bind=" + homePath + "/图片/:/home/gxde/Pictures");
+	// 挂载 /home 及宿主机用户的常用目录到容器内同名用户的家目录
+	string containerHome = "/home/" + user.name;
+	args.push_back("--bind=/home:" + containerHome + "/home");
+	// {容器内目录名, 宿主机英文目录名, 宿主机中文目录名}
+	vector<vector<string>> userDirs = {
+		{"Desktop", "Desktop", "桌面"},
+		{"Videos", "Videos", "视频"},
+		{"Documents", "Documents", "文档"},
+		{"Music", "Music", "音乐"},
+		{"Downloads", "Downloads", "下载"},
+		{"Pictures", "Pictures", "图片"},
+	};
+	for (const vector<string> &dir: userDirs) {
+		for (size_t i = 1; i < dir.size(); ++i) {
+			string hostDir = user.home + "/" + dir[i];
+			if (std::filesystem::is_directory(hostDir)) {
+				args.push_back("--bind=" + hostDir + "/:" + containerHome + "/" + dir[0]);
+				break;
+			}
 		}
 	}
 	
-	//args.push_back("--bind=/:/home/gxde/host");
 	// 部分发行版（如 Arch）默认没有 /media，绑定不存在的路径会导致 nspawn 启动失败
 	if (std::filesystem::exists("/media")) {
 		args.push_back("--bind=/media:/media");
@@ -180,7 +167,8 @@ void Container::runAppInContainer(string containerName,
 	string x11Display, 
 	string waylandDisplay,
 	string lang,
-	string language)
+	string language,
+	uid_t uid)
 {
 	// systemd-run -M containerName --setenv=DISPLAY=:0 firefox
 	// 这里是从后往前的顺序生成 args
@@ -188,7 +176,8 @@ void Container::runAppInContainer(string containerName,
 	args.insert(args.begin(), user);
 	args.insert(args.begin(), "--uid");
 	// 传入环境变量
-	vector<string> envValue = {x11Display, waylandDisplay, lang, language, "/run/user/1000/pulse/native"};
+	string pulseServer = uid == 0 ? "" : "/run/user/" + std::to_string(uid) + "/pulse/native";
+	vector<string> envValue = {x11Display, waylandDisplay, lang, language, pulseServer};
 	vector<string> envName = {"DISPLAY", "WAYLAND_DISPLAY", "LANG", "LANGUAGE", "PULSE_SERVER"};
 	for(long unsigned int i = 0; i < envValue.size(); ++i){
 		string name = envName[i];
@@ -263,4 +252,160 @@ exec dbus-run-session -- startflakewm
 	std::string s = script;
 	s.erase(std::remove(s.begin(), s.end(), '\r'), s.end());
 	return {"/bin/bash", "-c", s};
+}
+
+// 生成单引号包裹的 shell 字面量
+static string shellQuote(const string &value)
+{
+	string quoted = "'";
+	for (char c: value) {
+		if (c == '\'') {
+			quoted += "'\\''";
+		}
+		else {
+			quoted += c;
+		}
+	}
+	return quoted + "'";
+}
+
+bool Container::provisionUser(string containerPath, const HostUser &user, string hostname, string lang)
+{
+	static const char *script = R"SH(
+log() { echo "[gxde-lsg] $*"; }
+# hostname 继承宿主机
+if [ -n "$HOST" ]; then
+	echo "$HOST" > /etc/hostname
+	if grep -q '^127\.0\.1\.1[[:space:]]' /etc/hosts 2>/dev/null; then
+		sed -i "s/^127\.0\.1\.1[[:space:]].*/127.0.1.1\t$HOST/" /etc/hosts
+	else
+		printf '127.0.1.1\t%s\n' "$HOST" >> /etc/hosts
+	fi
+fi
+# 主组：与宿主机同 gid、同名
+cur_group=$(getent group "$GID_" | cut -d: -f1)
+if [ -z "$cur_group" ]; then
+	if getent group "$GROUP" >/dev/null; then
+		groupmod -g "$GID_" "$GROUP" || exit 1
+	else
+		groupadd -g "$GID_" "$GROUP" || exit 1
+	fi
+elif [ "$cur_group" != "$GROUP" ] && ! getent group "$GROUP" >/dev/null; then
+	groupmod -n "$GROUP" "$cur_group" || exit 1
+fi
+# 账户：与宿主机同 uid、同名
+HOME_DIR=/home/$NAME
+cur_user=$(getent passwd "$UID_" | cut -d: -f1)
+if [ -n "$cur_user" ] && [ "$cur_user" != "$NAME" ]; then
+	if getent passwd "$NAME" >/dev/null; then
+		log "uid $UID_ belongs to '$cur_user' but account '$NAME' also exists, fix it manually" >&2
+		exit 1
+	fi
+	# 同 uid 的旧账户（如默认的 gxde）改名为宿主机用户，保留其配置
+	old_home=$(getent passwd "$cur_user" | cut -d: -f6)
+	usermod -l "$NAME" "$cur_user" || exit 1
+	if [ -n "$old_home" ] && [ "$old_home" != "$HOME_DIR" ] && [ -d "$old_home" ] && [ ! -e "$HOME_DIR" ]; then
+		mv "$old_home" "$HOME_DIR"
+	fi
+	log "renamed account '$cur_user' to '$NAME'"
+elif [ -z "$cur_user" ]; then
+	if getent passwd "$NAME" >/dev/null; then
+		usermod -u "$UID_" "$NAME" || exit 1
+	else
+		useradd -M -u "$UID_" -g "$GID_" -d "$HOME_DIR" -s /bin/bash "$NAME" || exit 1
+		log "created account '$NAME'"
+	fi
+fi
+[ -x "$SHELL_" ] || SHELL_=/bin/bash
+usermod -g "$GID_" -d "$HOME_DIR" -s "$SHELL_" -c "$GECOS" "$NAME" || exit 1
+# 家目录：只修正目录本身的属主，不递归（其下会挂载宿主机目录）
+mkdir -p "$HOME_DIR"
+chown "$UID_:$GID_" "$HOME_DIR"
+if [ ! -e "$HOME_DIR/.bashrc" ] && [ -d /etc/skel ]; then
+	for f in /etc/skel/.[!.]* /etc/skel/*; do
+		[ -e "$f" ] || continue
+		b=$(basename "$f")
+		if [ ! -e "$HOME_DIR/$b" ]; then
+			cp -a "$f" "$HOME_DIR/$b" && chown -R "$UID_:$GID_" "$HOME_DIR/$b"
+		fi
+	done
+fi
+for g in audio video render; do
+	if getent group "$g" >/dev/null; then
+		usermod -aG "$g" "$NAME"
+	fi
+done
+# 与宿主机一致：宿主机是 sudoer 则加入 sudo 组，否则移出
+if [ "$SUDOER" = 1 ]; then
+	usermod -aG sudo "$NAME"
+else
+	gpasswd -d "$NAME" sudo >/dev/null 2>&1
+fi
+# 密码与宿主机一致
+if [ -n "$HASH" ]; then
+	printf '%s:%s\n' "$NAME" "$HASH" | chpasswd -e || exit 1
+fi
+# 宿主机语言（LANG）对应的 locale 需在容器内生成，否则程序会报 setlocale 警告
+if [ -n "$LOCALE" ] && [ "$LOCALE" != C ] && [ "$LOCALE" != POSIX ]; then
+	norm=$(printf '%s' "$LOCALE" | sed 's/\.[Uu][Tt][Ff]-\{0,1\}8$/.utf8/')
+	if ! locale -a 2>/dev/null | grep -qxF "$norm"; then
+		entry=$(awk -v l="$LOCALE" '$1 == l { print; exit }' /usr/share/i18n/SUPPORTED 2>/dev/null)
+		if [ -n "$entry" ] && [ -x /usr/sbin/locale-gen ]; then
+			if grep -qE "^#[[:space:]]*$entry\$" /etc/locale.gen 2>/dev/null; then
+				sed -i -E "s/^#[[:space:]]*($entry)\$/\1/" /etc/locale.gen
+			else
+				echo "$entry" >> /etc/locale.gen
+			fi
+			locale-gen >/dev/null && log "generated locale $LOCALE"
+		else
+			log "WARNING: locale $LOCALE is not available in the container" >&2
+		fi
+	fi
+	if ! grep -q '^LANG=' /etc/default/locale 2>/dev/null; then
+		echo "LANG=$LOCALE" >> /etc/default/locale
+	fi
+fi
+if [ -e /usr/bin/sudo ] && [ ! -u /usr/bin/sudo ]; then
+	log "WARNING: /usr/bin/sudo is not setuid, the rootfs was probably copied without preserving permissions; sudo will not work" >&2
+fi
+exit 0
+)SH";
+	// 参数写在脚本开头；脚本里含密码哈希，文件仅 root 可读，执行后立即删除
+	string body = "NAME=" + shellQuote(user.name) + "\n"
+		+ "UID_=" + std::to_string(user.uid) + "\n"
+		+ "GID_=" + std::to_string(user.gid) + "\n"
+		+ "GROUP=" + shellQuote(user.group) + "\n"
+		+ "GECOS=" + shellQuote(user.gecos) + "\n"
+		+ "SHELL_=" + shellQuote(user.shell) + "\n"
+		+ "SUDOER=" + (user.sudoer ? "1" : "0") + "\n"
+		+ "HASH=" + shellQuote(user.passwordHash) + "\n"
+		+ "HOST=" + shellQuote(hostname) + "\n"
+		+ "LOCALE=" + shellQuote(lang) + "\n"
+		+ script;
+	// 源文件是 CRLF，raw string 里会带上 \r
+	body.erase(std::remove(body.begin(), body.end(), '\r'), body.end());
+	string scriptInRootfs = "/root/.gxde-lsg-provision.sh";
+	string scriptPath = containerPath + scriptInRootfs;
+	std::error_code ec;
+	std::filesystem::create_directories(containerPath + "/root", ec);
+	{
+		mode_t oldMask = umask(077);
+		std::ofstream file(scriptPath, std::ios::trunc);
+		umask(oldMask);
+		if (!file) {
+			cerr << "Cannot write " << scriptPath << endl;
+			return false;
+		}
+		file << body;
+	}
+	chmod(scriptPath.c_str(), 0700);
+	// 不开机、不注册的一次性 nspawn，此时没有任何绑定挂载，改名/移动家目录是安全的
+	int code = Utils::runCommand("/usr/bin/systemd-nspawn", {"-q", "--register=no", "--console=pipe",
+		"-D", containerPath, "/bin/bash", scriptInRootfs});
+	std::filesystem::remove(scriptPath, ec);
+	if (code != 0) {
+		cerr << "Failed to set up user '" << user.name << "' in the container" << endl;
+		return false;
+	}
+	return true;
 }

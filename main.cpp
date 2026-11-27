@@ -37,12 +37,16 @@ int main(int argc, char *argv[])
 	}
 	cout << "Linux Kernel Version: " << Utils::linuxKernelVersion() << endl;
 	cout << (Container::isLinuxKernelSupportContainer() ? "Support" : "Unsupport") << " systemd in this kernel version." << endl;
-	// 获取指定用户 uid
-	string userName = "gxde";  // 容器内的用户名
-	string localUserName = ""; // 宿主机用户名
+	// 容器内使用与宿主机一致的账户：同名、同 uid/gid、同密码，sudoer 身份也一致
+	HostUser hostUser;
 	if (argc > 1 && strcmp(argv[1], "install-deb") == 0) {
-		return !Utils::callInstallDeb(argc, argv, userName);
+		if (!Utils::hostUser("", hostUser)) {
+			cerr << "Cannot determine the host user, please run via sudo or pkexec" << endl;
+			return 1;
+		}
+		return !Utils::callInstallDeb(argc, argv, hostUser.name);
 	}
+	string localUserName = ""; // 显式指定的宿主机用户名（可选）
 	bool waylandSession = false; // --wayland：使用 FlakeWM 启动原生 Wayland 会话
 	for (int i = 1; i < argc; ++i) {
 		if (strcasecmp(argv[i], "--wayland") == 0) {
@@ -63,8 +67,22 @@ int main(int argc, char *argv[])
 	string rootfsTarPath = Utils::rootfsTarPath();
 	string containerName = CONTAINERNAME;
 	
+	if (!Utils::hostUser(localUserName, hostUser)) {
+		if (localUserName != "") {
+			cerr << "Host user '" << localUserName << "' not found (or is root)" << endl;
+		}
+		else {
+			cerr << "Cannot determine the host user: run via sudo/pkexec, or pass it: " << argv[0] << " <user>" << endl;
+		}
+		return 1;
+	}
+	string userName = hostUser.name; // 容器内的用户名
+	string hostname = Utils::hostName();
+	cout << "Container user: " << userName << " (uid " << hostUser.uid << ", "
+		<< (hostUser.sudoer ? "sudoer" : "not sudoer") << "), hostname: " << hostname << endl;
+	
 	string x11Display = Utils::getEnv("DISPLAY");
-	string hostWaylandSocket = Utils::hostWaylandSocket();
+	string hostWaylandSocket = Utils::hostWaylandSocket(hostUser.uid);
 	// 只有 Wayland 会话才把宿主机 Wayland 交给容器，X11 会话里的程序应留在 Xephyr 内
 	string waylandDisplay = waylandSession ? Container::containerWaylandSocket : "";
 	string lang = Utils::getEnv("LANG");
@@ -92,14 +110,19 @@ int main(int argc, char *argv[])
 	}
 	if (!Container::isContainerRunning(containerName)) {
 		// 如果容器已存在，则不重复 loading
-		if (!Container::loadingLinuxContainer(rootfsPath, containerName, localUserName, Container::isLinuxKernelSupportContainer(), hostWaylandSocket)) {
+		if (!Container::provisionUser(rootfsPath, hostUser, hostname, lang)) {
+			return 1;
+		}
+		if (!Container::loadingLinuxContainer(rootfsPath, containerName, hostUser, hostname, Container::isLinuxKernelSupportContainer(), hostWaylandSocket)) {
 			return 1;
 		}
 	}
 	if (Container::isContainerRunning(containerName)) {
 		// 网络、蓝牙、电源服务由宿主机提供：屏蔽容器内的同名服务并启动转发
 		Container::maskServices(containerName, {"NetworkManager.service", "bluetooth.service", "upower.service"});
-		if (DBusBridge::spawn(DBusBridge::defaultOptions(containerName)) < 0) {
+		DBusBridge::Options bridgeOptions = DBusBridge::defaultOptions(containerName);
+		bridgeOptions.hostUid = hostUser.uid;
+		if (DBusBridge::spawn(bridgeOptions) < 0) {
 			cerr << "D-Bus bridge failed, WiFi/Bluetooth/Power of host will be unavailable" << endl;
 		}
 		// 拷贝宿主机的 /etc/resolve.conf
@@ -122,7 +145,8 @@ int main(int argc, char *argv[])
 			x11Display, 
 			waylandDisplay,
 			lang,
-			language);
+			language,
+			hostUser.uid);
 	}
 	while(Container::isContainerRunning(containerName)){
 		// 只有在 container 停止后才会停止运行程序

@@ -6,6 +6,9 @@
 #include <filesystem>
 #include <vector>
 #include <sys/utsname.h>
+#include <fstream>
+#include <sstream>
+#include <cstdlib>
 
 using namespace std;
 
@@ -186,8 +189,8 @@ string Utils::getEnv(string envName)
 }
 
 // 返回宿主机 Wayland socket 的绝对路径，宿主机不是 Wayland 会话时返回空字符串
-// 经 sudo 提权后 WAYLAND_DISPLAY / XDG_RUNTIME_DIR 通常会被清掉，此时按 SUDO_UID 推测
-string Utils::hostWaylandSocket()
+// 经 sudo 提权后 WAYLAND_DISPLAY / XDG_RUNTIME_DIR 通常会被清掉，此时按宿主机用户的 uid 推测
+string Utils::hostWaylandSocket(uid_t uid)
 {
 	string display = getEnv("WAYLAND_DISPLAY");
 	if (display == "") {
@@ -197,8 +200,7 @@ string Utils::hostWaylandSocket()
 	if (display[0] != '/') {
 		string runtimeDir = getEnv("XDG_RUNTIME_DIR");
 		if (runtimeDir == "" || runtimeDir == "/run/user/0") {
-			string uid = getEnv("SUDO_UID");
-			runtimeDir = "/run/user/" + (uid == "" ? string("1000") : uid);
+			runtimeDir = "/run/user/" + std::to_string(uid);
 		}
 		socketPath = runtimeDir + "/" + display;
 	}
@@ -207,4 +209,105 @@ string Utils::hostWaylandSocket()
 		return "";
 	}
 	return socketPath;
+}
+
+// 按 ':' 切分 /etc/passwd、/etc/group、/etc/shadow 的一行（保留空字段）
+static vector<string> splitFields(const string &line, char sep = ':')
+{
+	vector<string> fields;
+	std::stringstream stream(line);
+	string field;
+	while (std::getline(stream, field, sep)) {
+		fields.push_back(field);
+	}
+	if (!line.empty() && line.back() == sep) {
+		fields.push_back("");
+	}
+	return fields;
+}
+
+// 确定宿主机用户：name 非空时按用户名查找，否则取发起 sudo/pkexec 的用户
+// 静态链接下 getpwnam 等依赖 NSS 动态库，这里直接解析 /etc/passwd 等文件
+bool Utils::hostUser(string name, HostUser &user)
+{
+	string uidText;
+	if (name == "") {
+		for (const char *env: {"SUDO_UID", "PKEXEC_UID"}) {
+			uidText = getEnv(env);
+			if (uidText != "") {
+				break;
+			}
+		}
+		if (uidText == "") {
+			return false;
+		}
+	}
+	bool found = false;
+	string line;
+	std::ifstream passwd("/etc/passwd");
+	while (std::getline(passwd, line)) {
+		vector<string> f = splitFields(line);
+		if (f.size() < 7) {
+			continue;
+		}
+		if ((name != "" && f[0] == name) || (name == "" && f[2] == uidText)) {
+			user.name = f[0];
+			user.uid = strtoul(f[2].c_str(), nullptr, 10);
+			user.gid = strtoul(f[3].c_str(), nullptr, 10);
+			user.gecos = f[4];
+			user.home = f[5];
+			user.shell = f[6];
+			found = true;
+			break;
+		}
+	}
+	// 不把宿主机 root 映射进容器
+	if (!found || user.uid == 0) {
+		return false;
+	}
+	user.group = user.name;
+	user.sudoer = false;
+	std::ifstream groupFile("/etc/group");
+	while (std::getline(groupFile, line)) {
+		vector<string> f = splitFields(line);
+		if (f.size() < 3) {
+			continue;
+		}
+		bool isPrimary = strtoul(f[2].c_str(), nullptr, 10) == user.gid;
+		if (isPrimary) {
+			user.group = f[0];
+		}
+		bool isMember = isPrimary;
+		if (!isMember && f.size() >= 4) {
+			for (const string &member: splitFields(f[3], ',')) {
+				if (member == user.name) {
+					isMember = true;
+					break;
+				}
+			}
+		}
+		if (isMember && (f[0] == "sudo" || f[0] == "wheel" || f[0] == "admin")) {
+			user.sudoer = true;
+		}
+	}
+	user.passwordHash = "";
+	std::ifstream shadow("/etc/shadow");
+	while (std::getline(shadow, line)) {
+		vector<string> f = splitFields(line);
+		// 只同步真正的密码哈希，锁定（! / *）或空密码不同步
+		if (f.size() >= 2 && f[0] == user.name && f[1].size() > 1 && f[1][0] == '$') {
+			user.passwordHash = f[1];
+			break;
+		}
+	}
+	return true;
+}
+
+string Utils::hostName()
+{
+	char name[256] = {0};
+	if (gethostname(name, sizeof(name) - 1) != 0) {
+		return "";
+	}
+	return name;
 }
