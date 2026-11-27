@@ -6,6 +6,7 @@
 #include <string.h>
 #include "utils.h"
 #include "container.h"
+#include "dbusbridge.h"
 
 using namespace std;
 
@@ -14,6 +15,16 @@ int main(int argc, char *argv[])
 	if (argc > 1 && strcmp(argv[1], "--help") == 0) {
 		Utils::showHelp(argv);
 		return 1;
+	}
+	if (argc > 1 && strcmp(argv[1], "dbus-bridge") == 0) {
+		// 手动运行转发（调试用）：gxde-lsg dbus-bridge [-v] [--machine NAME] [--host-uid UID] [SERVICE...]
+		DBusBridge::Options options = DBusBridge::defaultOptions(CONTAINERNAME);
+		if (!DBusBridge::parseArgs(argc - 2, argv + 2, options)) {
+			cerr << "Usage: " << argv[0] << " dbus-bridge [-v] [--machine NAME] [--container-bus PATH] "
+				"[--host-bus PATH] [--host-uid UID] [SERVICE...]" << endl;
+			return 1;
+		}
+		return DBusBridge::run(options);
 	}
 	// 判断用户是否使用 root 权限运行程序
 	if (getuid() != 0) {
@@ -59,15 +70,29 @@ int main(int argc, char *argv[])
 	}
 	if (!Container::isContainerRunning(containerName)) {
 		// 如果容器已存在，则不重复 loading
-		Container::loadingLinuxContainer(rootfsPath, containerName, localUserName, Container::isLinuxKernelSupportContainer());
+		if (!Container::loadingLinuxContainer(rootfsPath, containerName, localUserName, Container::isLinuxKernelSupportContainer())) {
+			return 1;
+		}
 	}
 	if (Container::isContainerRunning(containerName)) {
-		// 禁用 network manager
-		Container::disabledNetworkManager(containerName);
+		// 网络、蓝牙、电源服务由宿主机提供：屏蔽容器内的同名服务并启动转发
+		Container::maskServices(containerName, {"NetworkManager.service", "bluetooth.service", "upower.service"});
+		if (DBusBridge::spawn(DBusBridge::defaultOptions(containerName)) < 0) {
+			cerr << "D-Bus bridge failed, WiFi/Bluetooth/Power of host will be unavailable" << endl;
+		}
 		// 拷贝宿主机的 /etc/resolve.conf
-		std::filesystem::copy_file("/etc/resolv.conf", 
-			rootfsPath + "/etc/resolv.conf",
-			std::filesystem::copy_options::overwrite_existing);
+		// 目标若是符号链接（如指向 /run/systemd/resolve/...），直接写入会顺着链接改写宿主机文件，
+		// 因此先删除链接本身；目标被挂载占用时删除/拷贝失败则跳过，不抛异常
+		std::error_code ec;
+		string resolvPath = rootfsPath + "/etc/resolv.conf";
+		if (std::filesystem::is_symlink(resolvPath, ec)) {
+			std::filesystem::remove(resolvPath, ec);
+		}
+		std::filesystem::copy_file("/etc/resolv.conf", resolvPath,
+			std::filesystem::copy_options::overwrite_existing, ec);
+		if (ec) {
+			cerr << "Copy resolv.conf failed: " << ec.message() << endl;
+		}
 		vector<string> command;
 		command.push_back("startgxde_window");
 		Container::runAppInContainer(containerName, 

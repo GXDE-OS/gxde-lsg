@@ -113,11 +113,11 @@ int Utils::runCommand(string command, vector<std::string> args, bool isWaiting)
 	}
 	else if (pid < 0) {
 		// 创建子进程失败
-		return 1;
+		return isWaiting ? 1 : -1;
 	}
 	else {
 		if (!isWaiting) {
-			return 0;
+			return pid;
 		}
 		// 父进程
 		int status;

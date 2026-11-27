@@ -1,6 +1,7 @@
 #include "container.h"
 #include "utils.h"
 #include <unistd.h>
+#include <sys/wait.h>
 #include <filesystem>
 #include <vector>
 #include <istream>
@@ -65,7 +66,7 @@ void Container::installApp(string containerName, vector<string> debList, string 
 	runAppInContainer(containerName, useUser, command);
 }
 
-void Container::loadingLinuxContainer(
+bool Container::loadingLinuxContainer(
 	string containerPath, 
 	string containerName, 
 	std::string localUserName, 
@@ -140,12 +141,25 @@ void Container::loadingLinuxContainer(
 	}
 	
 	//args.push_back("--bind=/:/home/gxde/host");
-	args.push_back("--bind=/media:/media");
+	// 部分发行版（如 Arch）默认没有 /media，绑定不存在的路径会导致 nspawn 启动失败
+	if (std::filesystem::exists("/media")) {
+		args.push_back("--bind=/media:/media");
+	}
 	// --bind-ro=
-	Utils::runCommand("/usr/bin/systemd-nspawn", args, false);
+	pid_t nspawnPid = Utils::runCommand("/usr/bin/systemd-nspawn", args, false);
+	if (nspawnPid < 0) {
+		return false;
+	}
 	while(!isContainerRunning(containerName)){
+		// nspawn 已退出说明容器启动失败，不再继续等待
+		int status;
+		if (waitpid(nspawnPid, &status, WNOHANG) == nspawnPid) {
+			cerr << "systemd-nspawn exited before the container was ready" << endl;
+			return false;
+		}
 		sleep(1);
 	}
+	return true;
 }
 
 void Container::runAppInContainer(string containerName, 
@@ -176,18 +190,12 @@ void Container::runAppInContainer(string containerName,
 	Utils::runCommand("/usr/bin/systemd-run", args);
 }
 
-void Container::disabledNetworkManager(string containerName)
+void Container::maskServices(string containerName, vector<string> units)
 {
-	vector<string> disableCommand;
-	disableCommand.push_back("systemctl");
-	disableCommand.push_back("disable");
-	disableCommand.push_back("NetworkManager");
-	vector<string> stopCommand;
-	stopCommand.push_back("systemctl");
-	stopCommand.push_back("stop");
-	stopCommand.push_back("NetworkManager");
-	runAppInContainer(containerName, "root", disableCommand);
-	runAppInContainer(containerName, "root", stopCommand);
+	// 这些服务改由宿主机通过 dbus-bridge 提供，容器内的同名服务会抢占总线名，需要屏蔽
+	vector<string> command = {"systemctl", "mask", "--now"};
+	command.insert(command.end(), units.begin(), units.end());
+	runAppInContainer(containerName, "root", command);
 }
 
 void Container::runXephyr(string containerName, string user)

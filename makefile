@@ -3,9 +3,9 @@
 
 CPP      = g++
 CC       = gcc
-OBJ      = container.o utils.o main.o
-LINKOBJ  = container.o utils.o main.o
-CLEANOBJ  =  container.o utils.o main.o gxde-lsg
+OBJ      = container.o utils.o dbuswire.o dbusbridge.o main.o
+LINKOBJ  = container.o utils.o dbuswire.o dbusbridge.o main.o
+CLEANOBJ  =  container.o utils.o dbuswire.o dbusbridge.o main.o gxde-lsg
 LIBS     =  -static
 INCS     =  
 CXXINCS  =  
@@ -30,5 +30,11 @@ container.o: container.cpp utils.h container.h
 utils.o: utils.cpp utils.h container.h
 	$(CPP) -c utils.cpp -o utils.o $(CXXFLAGS) 
 
-main.o: main.cpp utils.h container.h
+dbuswire.o: dbuswire.cpp dbuswire.h
+	$(CPP) -c dbuswire.cpp -o dbuswire.o $(CXXFLAGS) 
+
+dbusbridge.o: dbusbridge.cpp dbusbridge.h dbuswire.h
+	$(CPP) -c dbusbridge.cpp -o dbusbridge.o $(CXXFLAGS) 
+
+main.o: main.cpp utils.h container.h dbusbridge.h
 	$(CPP) -c main.cpp -o main.o $(CXXFLAGS) 
