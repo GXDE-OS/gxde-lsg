@@ -1,0 +1,16 @@
+#!/bin/sh
+set -e
+
+APP_DIR=/opt/apps/top.gxde.gxde-lsg/files
+
+if [ "$1" = configure ] && [ ! -e "$APP_DIR/gxde-rootfs/etc/hostname" ] && [ ! -f "$APP_DIR/gxde-rootfs.tar.xz" ]; then
+	echo "正在生成 GXDE rootfs，需要联网下载，可能需要较长时间……"
+	if ! "$APP_DIR/gxde-lsg-build-rootfs" --rootfs "$APP_DIR/gxde-rootfs"; then
+		echo "警告: 生成 GXDE rootfs 失败，可稍后手动运行:" >&2
+		echo "  sudo $APP_DIR/gxde-lsg-build-rootfs --rootfs $APP_DIR/gxde-rootfs" >&2
+	fi
+fi
+
+#DEBHELPER#
+
+exit 0
