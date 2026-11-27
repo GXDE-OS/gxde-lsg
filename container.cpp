@@ -8,6 +8,7 @@
 #include <istream>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <sys/stat.h>
 
 using namespace std;
@@ -407,5 +408,56 @@ exit 0
 		cerr << "Failed to set up user '" << user.name << "' in the container" << endl;
 		return false;
 	}
+	return true;
+}
+
+bool Container::installBridgePolicy(string containerPath, const vector<string> &services)
+{
+	// 服务端（bluez / NetworkManager）回调客户端时用到的接口，bridge 以 root 身份代发，
+	// 系统总线默认禁止 method_call，需显式放行（取自 bluez、NetworkManager 自带的策略）
+	static const vector<string> callbackInterfaces = {
+		"org.bluez.Agent1", "org.bluez.MediaEndpoint1", "org.bluez.MediaPlayer1",
+		"org.bluez.Profile1", "org.bluez.GattCharacteristic1", "org.bluez.GattDescriptor1",
+		"org.bluez.LEAdvertisement1", "org.bluez.AdvertisementMonitor1", "org.bluez.BatteryProvider1",
+		"org.mpris.MediaPlayer2.Player", "org.freedesktop.DBus.ObjectManager",
+		"org.freedesktop.DBus.Properties", "org.freedesktop.NetworkManager.SecretAgent",
+	};
+	string conf =
+		"<!DOCTYPE busconfig PUBLIC \"-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN\"\n"
+		" \"http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd\">\n"
+		"<!-- 由 gxde-lsg 生成：以下服务由宿主机经 dbus-bridge 提供，请勿手动修改 -->\n"
+		"<busconfig>\n"
+		"  <policy user=\"root\">\n";
+	for (const string &name: services) {
+		conf += "    <allow own=\"" + name + "\"/>\n";
+	}
+	for (const string &iface: callbackInterfaces) {
+		conf += "    <allow send_interface=\"" + iface + "\"/>\n";
+	}
+	conf += "  </policy>\n  <policy context=\"default\">\n";
+	for (const string &name: services) {
+		conf += "    <allow send_destination=\"" + name + "\"/>\n";
+	}
+	conf += "  </policy>\n</busconfig>\n";
+
+	string dir = containerPath + "/etc/dbus-1/system.d";
+	string path = dir + "/gxde-lsg-bridge.conf";
+	std::error_code ec;
+	std::filesystem::create_directories(dir, ec);
+	// 内容未变则不重写，避免容器运行中的 dbus-daemon 无谓地重新加载配置
+	{
+		std::ifstream old(path);
+		std::stringstream current;
+		current << old.rdbuf();
+		if (old && current.str() == conf) {
+			return true;
+		}
+	}
+	std::ofstream file(path, std::ios::trunc);
+	if (!file) {
+		cerr << "Cannot write " << path << endl;
+		return false;
+	}
+	file << conf;
 	return true;
 }

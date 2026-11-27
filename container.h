@@ -23,6 +23,8 @@ public:
 		std::string language = "",
 		uid_t uid = 0);
 	static void maskServices(std::string containerName, std::vector<std::string> units);
+	// 为 dbus-bridge 转发的服务写入容器系统总线策略，不依赖容器内是否装了对应软件包
+	static bool installBridgePolicy(std::string containerPath, const std::vector<std::string> &services);
 	static void runXephyr(std::string containerName, std::string user);
 	static void installApp(std::string containerName, std::vector<std::string> debList, std::string user="root");
 	static bool isLinuxKernelSupportContainer();

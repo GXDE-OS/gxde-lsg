@@ -108,6 +108,11 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 	}
+	// 宿主机网络、蓝牙、电源服务经 dbus-bridge 转发进容器，先写好容器总线策略
+	// （容器已在运行时，dbus-daemon 会监测到配置目录变化并自动重新加载）
+	DBusBridge::Options bridgeOptions = DBusBridge::defaultOptions(containerName);
+	bridgeOptions.hostUid = hostUser.uid;
+	Container::installBridgePolicy(rootfsPath, bridgeOptions.services);
 	if (!Container::isContainerRunning(containerName)) {
 		// 如果容器已存在，则不重复 loading
 		if (!Container::provisionUser(rootfsPath, hostUser, hostname, lang)) {
@@ -120,8 +125,6 @@ int main(int argc, char *argv[])
 	if (Container::isContainerRunning(containerName)) {
 		// 网络、蓝牙、电源服务由宿主机提供：屏蔽容器内的同名服务并启动转发
 		Container::maskServices(containerName, {"NetworkManager.service", "bluetooth.service", "upower.service"});
-		DBusBridge::Options bridgeOptions = DBusBridge::defaultOptions(containerName);
-		bridgeOptions.hostUid = hostUser.uid;
 		if (DBusBridge::spawn(bridgeOptions) < 0) {
 			cerr << "D-Bus bridge failed, WiFi/Bluetooth/Power of host will be unavailable" << endl;
 		}
