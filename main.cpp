@@ -48,9 +48,26 @@ int main(int argc, char *argv[])
 	}
 	string localUserName = ""; // 显式指定的宿主机用户名（可选）
 	bool waylandSession = false; // --wayland：使用 FlakeWM 启动原生 Wayland 会话
+	// --immersive：宿主机沉浸式登录会话（session/start-session.sh）使用，隐含 --wayland。
+	// 容器内的 FlakeWM 带 --lsg-immersive-client，通过 dde_shell 请求宿主机去掉标题栏和边框并全屏；
+	// 容器内桌面退出后关闭容器并退出，宿主机 FlakeWM 随之结束会话
+	bool immersiveSession = false;
+	const string waylandDisplayOption = "--wayland-display=";
 	for (int i = 1; i < argc; ++i) {
 		if (strcasecmp(argv[i], "--wayland") == 0) {
 			waylandSession = true;
+		}
+		else if (strcasecmp(argv[i], "--immersive") == 0) {
+			waylandSession = immersiveSession = true;
+		}
+		else if (strncasecmp(argv[i], waylandDisplayOption.c_str(), waylandDisplayOption.size()) == 0) {
+			// pkexec 会清掉 WAYLAND_DISPLAY，由参数传入；只接受 $XDG_RUNTIME_DIR 下的 socket 名
+			string name = argv[i] + waylandDisplayOption.size();
+			if (name == "" || name.find('/') != string::npos) {
+				cerr << "Invalid Wayland display name: " << name << endl;
+				return 1;
+			}
+			setenv("WAYLAND_DISPLAY", name.c_str(), 1);
 		}
 		else if (argv[i][0] == '-') {
 			// 未知选项不能当成用户名，否则会悄悄退回默认会话
@@ -141,7 +158,7 @@ int main(int argc, char *argv[])
 		if (ec) {
 			cerr << "Copy resolv.conf failed: " << ec.message() << endl;
 		}
-		vector<string> command = Container::desktopSessionCommand(waylandSession);
+		vector<string> command = Container::desktopSessionCommand(waylandSession, immersiveSession);
 		Container::runAppInContainer(containerName, 
 			userName, 
 			command, 
@@ -149,7 +166,13 @@ int main(int argc, char *argv[])
 			waylandDisplay,
 			lang,
 			language,
-			hostUser.uid);
+			hostUser.uid,
+			immersiveSession);
+		if (immersiveSession) {
+			// 容器内桌面已退出（注销），会话结束
+			cout << "Desktop session in container ended, powering off " << containerName << endl;
+			Container::powerOff(containerName);
+		}
 	}
 	while(Container::isContainerRunning(containerName)){
 		// 只有在 container 停止后才会停止运行程序

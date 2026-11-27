@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>GXDE</vendor>
+  <vendor_url>https://gitee.com/GXDE-OS/gxde-lsg</vendor_url>
+
+  <!-- pkexec 启动 gxde-lsg；沉浸式会话的免密规则见 rules.d/50-top.gxde.gxde-lsg.rules -->
+  <action id="top.gxde.gxde-lsg">
+    <description>Run the Linux Subsystem for GXDE</description>
+    <description xml:lang="zh_CN">运行 GXDE 兼容层</description>
+    <message>Authentication is required to start the Linux Subsystem for GXDE</message>
+    <message xml:lang="zh_CN">启动 GXDE 兼容层需要认证</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/opt/apps/top.gxde.gxde-lsg/files/gxde-lsg</annotate>
+  </action>
+</policyconfig>

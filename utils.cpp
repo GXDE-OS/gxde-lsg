@@ -151,6 +151,10 @@ void Utils::showHelp(char *argv[])
 	cout << endl;
 	cout << "Options:" << endl;
 	cout << "  --wayland    使用 FlakeWM 启动原生 Wayland 会话（需要宿主机为 Wayland 会话）" << endl;
+	cout << "  --immersive  沉浸式会话（隐含 --wayland）：请求宿主机 FlakeWM 去掉窗口标题栏和边框并全屏，" << endl;
+	cout << "               容器内桌面注销后关闭容器。供登录会话 \"Linux Subsystem for GXDE\" 使用" << endl;
+	cout << "  --wayland-display=NAME" << endl;
+	cout << "               宿主机 Wayland socket 名（默认取 $WAYLAND_DISPLAY，再默认 wayland-0）" << endl;
 }
 
 string Utils::programPath()

@@ -184,7 +184,8 @@ void Container::runAppInContainer(string containerName,
 	string waylandDisplay,
 	string lang,
 	string language,
-	uid_t uid)
+	uid_t uid,
+	bool wait)
 {
 	// systemd-run -M containerName --setenv=DISPLAY=:0 firefox
 	// 这里是从后往前的顺序生成 args
@@ -202,9 +203,18 @@ void Container::runAppInContainer(string containerName,
 			args.insert(args.begin(), "--setenv=" + name + "=" + value);	
 		}
 	}
+	// wait：阻塞到容器内的程序退出（--wait 在单元结束前不返回）
+	if (wait) {
+		args.insert(args.begin(), "--wait");
+	}
 	args.insert(args.begin(), containerName);
 	args.insert(args.begin(), "-M");
 	Utils::runCommand("/usr/bin/systemd-run", args);
+}
+
+void Container::powerOff(string containerName)
+{
+	Utils::runCommand("/usr/bin/machinectl", {"poweroff", containerName});
 }
 
 void Container::maskServices(string containerName, vector<string> units)
@@ -232,7 +242,7 @@ void Container::runXephyr(string containerName, string user)
 // 启动 GXDE 桌面的命令
 // waylandSession 为 false：Xephyr 中的 X11 会话（startgxde_window）
 // waylandSession 为 true：原生 Wayland 会话，FlakeWM 以 wlroots 的 wayland 后端作为窗口运行在宿主机 Wayland 上
-std::vector<std::string> Container::desktopSessionCommand(bool waylandSession)
+std::vector<std::string> Container::desktopSessionCommand(bool waylandSession, bool immersive)
 {
 	if (!waylandSession) {
 		return {"startgxde_window"};
@@ -262,12 +272,17 @@ unset DISPLAY
 echo "GXDE FlakeWM session on host Wayland: $WAYLAND_DISPLAY"
 # 不能用 dbus-launch --exit-with-session：它靠 stdin/X 连接判断会话结束，
 # systemd-run 下 stdin 是 /dev/null 且没有 DISPLAY，总线会被立刻杀掉
-exec dbus-run-session -- startflakewm
+# 参数（如 --lsg-immersive-client）由 startflakewm 原样传给 flakewm
+exec dbus-run-session -- startflakewm "$@"
 )SH";
 	// 源文件是 CRLF，raw string 里会带上 \r，交给 bash 前去掉
 	std::string s = script;
 	s.erase(std::remove(s.begin(), s.end(), '\r'), s.end());
-	return {"/bin/bash", "-c", s};
+	std::vector<std::string> command = {"/bin/bash", "-c", s, "gxde-lsg-session"};
+	if (immersive) {
+		command.push_back("--lsg-immersive-client");
+	}
+	return command;
 }
 
 // 生成单引号包裹的 shell 字面量

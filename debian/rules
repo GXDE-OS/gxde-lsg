@@ -17,6 +17,11 @@ endif
 # makefile 没有 install 目标，与 rpm 保持相同的安装布局
 override_dh_auto_install:
 	install -Dm755 gxde-lsg $(PKG_DIR)/$(APP_DIR)/gxde-lsg
+	# 沉浸式登录会话（宿主机需自行安装 FlakeWM）
+	install -Dm755 session/start-session.sh $(PKG_DIR)/$(APP_DIR)/gxde-lsg-session
+	install -Dm644 session/gxde-lsg.desktop $(PKG_DIR)/usr/share/wayland-sessions/gxde-lsg.desktop
+	install -Dm644 session/top.gxde.gxde-lsg.policy $(PKG_DIR)/usr/share/polkit-1/actions/top.gxde.gxde-lsg.policy
+	install -Dm644 session/top.gxde.gxde-lsg.rules $(PKG_DIR)/usr/share/polkit-1/rules.d/50-top.gxde.gxde-lsg.rules
 	if [ -f gxde-rootfs.tar.xz ]; then \
 		install -Dm644 gxde-rootfs.tar.xz $(PKG_DIR)/$(APP_DIR)/gxde-rootfs.tar.xz; \
 	else \

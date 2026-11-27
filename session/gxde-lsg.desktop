@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Linux Subsystem for GXDE
+Name[zh_CN]=GXDE 兼容层
+Comment=GXDE desktop of the Linux Subsystem for GXDE, fullscreen on FlakeWM
+Comment[zh_CN]=在 FlakeWM 上全屏运行 GXDE 兼容层中的 GXDE 桌面
+Exec=/opt/apps/top.gxde.gxde-lsg/files/gxde-lsg-session
+TryExec=/opt/apps/top.gxde.gxde-lsg/files/gxde-lsg-session
+Type=Application
+DesktopNames=GXDE
