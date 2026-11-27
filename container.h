@@ -7,7 +7,10 @@
 class Container {
 public:
 	static bool isContainerRunning(std::string containerName);
-	static bool loadingLinuxContainer(std::string containerPath, std::string containerName, std::string localUserName, bool loadSystemd=true);
+	// 宿主机 Wayland socket 在容器内的挂载位置
+	static constexpr const char *containerWaylandSocket = "/run/host-wayland/wayland-0";
+	static bool loadingLinuxContainer(std::string containerPath, std::string containerName, std::string localUserName, bool loadSystemd=true, std::string hostWaylandSocket="");
+	static std::vector<std::string> desktopSessionCommand(bool waylandSession);
 	static void runAppInContainer(std::string containerName, 
 		std::string user, 
 		std::vector<std::string> command, 

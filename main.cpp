@@ -4,6 +4,7 @@
 #include <vector>
 #include <unistd.h>
 #include <string.h>
+#include <strings.h>
 #include "utils.h"
 #include "container.h"
 #include "dbusbridge.h"
@@ -39,11 +40,23 @@ int main(int argc, char *argv[])
 	// 获取指定用户 uid
 	string userName = "gxde";  // 容器内的用户名
 	string localUserName = ""; // 宿主机用户名
-	if (argc > 1) {
-		localUserName = argv[1];
-	}
 	if (argc > 1 && strcmp(argv[1], "install-deb") == 0) {
 		return !Utils::callInstallDeb(argc, argv, userName);
+	}
+	bool waylandSession = false; // --wayland：使用 FlakeWM 启动原生 Wayland 会话
+	for (int i = 1; i < argc; ++i) {
+		if (strcasecmp(argv[i], "--wayland") == 0) {
+			waylandSession = true;
+		}
+		else if (argv[i][0] == '-') {
+			// 未知选项不能当成用户名，否则会悄悄退回默认会话
+			cerr << "Unknown option: " << argv[i] << endl;
+			Utils::showHelp(argv);
+			return 1;
+		}
+		else if (localUserName == "") {
+			localUserName = argv[i];
+		}
 	}
 	string programPath = Utils::programPath();
 	string rootfsPath = Utils::rootfsPath();
@@ -51,13 +64,22 @@ int main(int argc, char *argv[])
 	string containerName = CONTAINERNAME;
 	
 	string x11Display = Utils::getEnv("DISPLAY");
-	string waylandDisplay = Utils::getEnv("WAYLAND_DISPLAY");
+	string hostWaylandSocket = Utils::hostWaylandSocket();
+	// 只有 Wayland 会话才把宿主机 Wayland 交给容器，X11 会话里的程序应留在 Xephyr 内
+	string waylandDisplay = waylandSession ? Container::containerWaylandSocket : "";
 	string lang = Utils::getEnv("LANG");
 	string language = Utils::getEnv("LANGUAGE");
 	
-	if (x11Display == "") {
+	if (waylandSession && hostWaylandSocket == "") {
+		cerr << "--wayland requires a host Wayland session, but no Wayland socket was found!" << endl;
+		return 1;
+	}
+	if (!waylandSession && x11Display == "") {
 		cerr << "$DISPLAY Not Found!" << endl;
 		return 1;
+	}
+	if (hostWaylandSocket != "") {
+		cout << "Host Wayland socket: " << hostWaylandSocket << endl;
 	}
 	
 	if (!std::filesystem::exists(rootfsPath + "/etc/hostname")) {
@@ -70,7 +92,7 @@ int main(int argc, char *argv[])
 	}
 	if (!Container::isContainerRunning(containerName)) {
 		// 如果容器已存在，则不重复 loading
-		if (!Container::loadingLinuxContainer(rootfsPath, containerName, localUserName, Container::isLinuxKernelSupportContainer())) {
+		if (!Container::loadingLinuxContainer(rootfsPath, containerName, localUserName, Container::isLinuxKernelSupportContainer(), hostWaylandSocket)) {
 			return 1;
 		}
 	}
@@ -93,8 +115,7 @@ int main(int argc, char *argv[])
 		if (ec) {
 			cerr << "Copy resolv.conf failed: " << ec.message() << endl;
 		}
-		vector<string> command;
-		command.push_back("startgxde_window");
+		vector<string> command = Container::desktopSessionCommand(waylandSession);
 		Container::runAppInContainer(containerName, 
 			userName, 
 			command, 

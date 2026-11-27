@@ -16,6 +16,7 @@ public:
 	static bool callInstallDeb(int argc, char *argv[], std::string userName);
 	static void loadingKernelModule();
 	static std::string getEnv(std::string envName);
+	static std::string hostWaylandSocket();
 	static std::string linuxKernelVersion();
 	static std::string programPath();
 	static std::string rootfsPath(); 

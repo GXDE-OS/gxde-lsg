@@ -145,6 +145,9 @@ void Utils::showHelp(char *argv[])
 	
 	cout << "Usage:" << endl;
 	cout << argv[0] << " [COMMAND] [OPTIONS]" << endl;
+	cout << endl;
+	cout << "Options:" << endl;
+	cout << "  --wayland    使用 FlakeWM 启动原生 Wayland 会话（需要宿主机为 Wayland 会话）" << endl;
 }
 
 string Utils::programPath()
@@ -180,4 +183,28 @@ string Utils::getEnv(string envName)
 		return "";
 	}
 	return value;
+}
+
+// 返回宿主机 Wayland socket 的绝对路径，宿主机不是 Wayland 会话时返回空字符串
+// 经 sudo 提权后 WAYLAND_DISPLAY / XDG_RUNTIME_DIR 通常会被清掉，此时按 SUDO_UID 推测
+string Utils::hostWaylandSocket()
+{
+	string display = getEnv("WAYLAND_DISPLAY");
+	if (display == "") {
+		display = "wayland-0";
+	}
+	string socketPath = display;
+	if (display[0] != '/') {
+		string runtimeDir = getEnv("XDG_RUNTIME_DIR");
+		if (runtimeDir == "" || runtimeDir == "/run/user/0") {
+			string uid = getEnv("SUDO_UID");
+			runtimeDir = "/run/user/" + (uid == "" ? string("1000") : uid);
+		}
+		socketPath = runtimeDir + "/" + display;
+	}
+	std::error_code ec;
+	if (!std::filesystem::is_socket(socketPath, ec)) {
+		return "";
+	}
+	return socketPath;
 }
