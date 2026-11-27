@@ -1,0 +1,36 @@
+#!/usr/bin/make -f
+
+include /usr/share/dpkg/architecture.mk
+
+PKG_DIR := debian/top.gxde.gxde-lsg
+APP_DIR := opt/apps/top.gxde.gxde-lsg/files
+
+%:
+	dh $@
+
+# makefile 用 CPP 作为编译器变量，交叉编译时需要手动指定
+ifneq ($(DEB_BUILD_GNU_TYPE),$(DEB_HOST_GNU_TYPE))
+override_dh_auto_build:
+	dh_auto_build -- CPP=$(DEB_HOST_GNU_TYPE)-g++ CC=$(DEB_HOST_GNU_TYPE)-gcc
+endif
+
+# makefile 没有 install 目标，与 rpm 保持相同的安装布局
+override_dh_auto_install:
+	install -Dm755 gxde-lsg $(PKG_DIR)/$(APP_DIR)/gxde-lsg
+	if [ -f gxde-rootfs.tar.xz ]; then \
+		install -Dm644 gxde-rootfs.tar.xz $(PKG_DIR)/$(APP_DIR)/gxde-rootfs.tar.xz; \
+	else \
+		echo "warning: gxde-rootfs.tar.xz not found, packaging without rootfs" >&2; \
+	fi
+	if [ -d build-resources ]; then cp -a build-resources/. $(PKG_DIR)/; fi
+
+# 静态链接的二进制，跳过 dwz
+override_dh_dwz:
+
+# rootfs 已经是 xz 压缩包，不再重复压缩（同 rpm 的 w0.ufdio）
+override_dh_builddeb:
+ifneq ($(wildcard gxde-rootfs.tar.xz),)
+	dh_builddeb -- -Znone
+else
+	dh_builddeb
+endif

@@ -1,0 +1,16 @@
+Source: top.gxde.gxde-lsg
+Section: utils
+Priority: optional
+Maintainer: gfdgd xi <3025613752@qq.com>
+Build-Depends: debhelper-compat (= 12), g++
+Standards-Version: 4.6.2
+Homepage: https://github.com/GXDE-OS/gxde-lsg
+Rules-Requires-Root: no
+
+Package: top.gxde.gxde-lsg
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}, systemd-container, sudo, tar, xz-utils
+Recommends: x11-xserver-utils
+Description: 利用 systemd-nspawn 在其它 Linux 发行版运行 Debian + GXDE 桌面环境
+ 利用 systemd-nspawn 在其它 Linux 发行版（包括非 Debian 发行版）运行
+ Debian + GXDE 桌面环境。
