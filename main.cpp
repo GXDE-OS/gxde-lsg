@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
 			waylandSession = immersiveSession = true;
 		}
 		else if (strncasecmp(argv[i], waylandDisplayOption.c_str(), waylandDisplayOption.size()) == 0) {
-			// pkexec 会清掉 WAYLAND_DISPLAY，由参数传入；只接受 $XDG_RUNTIME_DIR 下的 socket 名
+			// sudo/pkexec 会清掉 WAYLAND_DISPLAY，由参数传入；只接受 $XDG_RUNTIME_DIR 下的 socket 名
 			string name = argv[i] + waylandDisplayOption.size();
 			if (name == "" || name.find('/') != string::npos) {
 				cerr << "Invalid Wayland display name: " << name << endl;

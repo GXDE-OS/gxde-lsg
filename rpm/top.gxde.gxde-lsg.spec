@@ -27,8 +27,7 @@ cp gxde-lsg ~/rpmbuild/BUILD/*/BUILDROOT/opt/apps/top.gxde.gxde-lsg/files/
 ROOT=$(echo ~/rpmbuild/BUILD/*/BUILDROOT)
 install -Dm755 session/start-session.sh $ROOT/opt/apps/top.gxde.gxde-lsg/files/gxde-lsg-session
 install -Dm644 session/gxde-lsg.desktop $ROOT/usr/share/wayland-sessions/gxde-lsg.desktop
-install -Dm644 session/top.gxde.gxde-lsg.policy $ROOT/usr/share/polkit-1/actions/top.gxde.gxde-lsg.policy
-install -Dm644 session/top.gxde.gxde-lsg.rules $ROOT/usr/share/polkit-1/rules.d/50-top.gxde.gxde-lsg.rules
+install -Dm755 session/askpass.sh $ROOT/opt/apps/top.gxde.gxde-lsg/files/gxde-lsg-askpass
 cp gxde-rootfs.tar.xz ~/rpmbuild/BUILD/*/BUILDROOT/opt/apps/top.gxde.gxde-lsg/files/
 
 #fakeroot chown root:root ~/rpmbuild/BUILDROOT/*/usr -Rv
