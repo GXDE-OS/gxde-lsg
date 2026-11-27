@@ -3,6 +3,7 @@
 include /usr/share/dpkg/architecture.mk
 
 PKG_DIR := debian/top.gxde.gxde-lsg
+ROOTFS_PKG_DIR := debian/gxde-lsg-rootfs
 APP_DIR := opt/apps/top.gxde.gxde-lsg/files
 
 %:
@@ -21,7 +22,7 @@ override_dh_auto_install:
 	install -Dm755 session/start-session.sh $(PKG_DIR)/$(APP_DIR)/gxde-lsg-session
 	install -Dm644 session/gxde-lsg.desktop $(PKG_DIR)/usr/share/wayland-sessions/gxde-lsg.desktop
 	install -Dm755 session/askpass.sh $(PKG_DIR)/$(APP_DIR)/gxde-lsg-askpass
-	install -Dm755 build-rootfs.sh $(PKG_DIR)/$(APP_DIR)/gxde-lsg-build-rootfs
+	install -Dm755 build-rootfs.sh $(ROOTFS_PKG_DIR)/$(APP_DIR)/gxde-lsg-build-rootfs
 	if [ -f gxde-rootfs.tar.xz ]; then \
 		install -Dm644 gxde-rootfs.tar.xz $(PKG_DIR)/$(APP_DIR)/gxde-rootfs.tar.xz; \
 	else \

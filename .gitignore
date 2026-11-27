@@ -33,7 +33,7 @@ gxde-lsg
 gxde-lsg_private.*
 build
 build-deb
-gxde-lsg-*
+/gxde-lsg-*
 *.tar.xz
 *.rpm
 *.deb
@@ -41,6 +41,7 @@ gxde-lsg-*
 # debhelper
 debian/.debhelper/
 debian/top.gxde.gxde-lsg/
+debian/gxde-lsg-rootfs/
 debian/files
 debian/*.substvars
 debian/*.debhelper.log

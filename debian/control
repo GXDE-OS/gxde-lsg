@@ -9,8 +9,16 @@ Rules-Requires-Root: no
 
 Package: top.gxde.gxde-lsg
 Architecture: any
-Depends: ${misc:Depends}, ${shlibs:Depends}, systemd-container, sudo, tar, xz-utils, debootstrap, debian-archive-keyring, curl
-Recommends: x11-xserver-utils
+Depends: ${misc:Depends}, ${shlibs:Depends}, systemd-container, sudo, tar, xz-utils
+Recommends: x11-xserver-utils, gxde-lsg-rootfs
 Description: 利用 systemd-nspawn 在其它 Linux 发行版运行 Debian + GXDE 桌面环境
  利用 systemd-nspawn 在其它 Linux 发行版（包括非 Debian 发行版）运行
  Debian + GXDE 桌面环境。
+
+Package: gxde-lsg-rootfs
+Architecture: all
+Depends: ${misc:Depends}, debootstrap, debian-archive-keyring, curl, tar, xz-utils
+Enhances: top.gxde.gxde-lsg
+Description: GXDE 兼容层的 rootfs 生成器
+ 安装时联网生成 top.gxde.gxde-lsg 使用的 Debian + GXDE rootfs（生成前会询问确认），
+ 并提供 gxde-lsg-build-rootfs 用于手动重新生成或打包 rootfs。

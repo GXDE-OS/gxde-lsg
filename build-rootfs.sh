@@ -241,6 +241,12 @@ prepare_workdir() {
 }
 
 main() {
+	local var
+	for var in $(compgen -e); do
+		if [[ "$var" == DEBIAN_HAS_FRONTEND || "$var" == DEBCONF_* ]]; then
+			unset "$var"
+		fi
+	done
 	parse_args "$@"
 	check_env
 	prepare_workdir

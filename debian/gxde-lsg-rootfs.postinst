@@ -1,0 +1,26 @@
+#!/bin/sh
+set -e
+
+. /usr/share/debconf/confmodule
+
+APP_DIR=/opt/apps/top.gxde.gxde-lsg/files
+BUILD_CMD="$APP_DIR/gxde-lsg-build-rootfs --rootfs $APP_DIR/gxde-rootfs"
+
+if [ "$1" = configure ] && [ ! -e "$APP_DIR/gxde-rootfs/etc/hostname" ] && [ ! -f "$APP_DIR/gxde-rootfs.tar.xz" ]; then
+	db_get gxde-lsg-rootfs/build
+	db_stop
+	if [ "$RET" = true ]; then
+		echo "正在生成 GXDE rootfs……"
+		if ! $BUILD_CMD 3>&-; then
+			echo "警告: 生成 GXDE rootfs 失败，可稍后手动运行:" >&2
+			echo "  sudo $BUILD_CMD" >&2
+		fi
+	else
+		echo "已跳过生成 GXDE rootfs，可稍后手动运行:"
+		echo "  sudo $BUILD_CMD"
+	fi
+fi
+
+#DEBHELPER#
+
+exit 0

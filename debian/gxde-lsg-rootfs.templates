@@ -1,0 +1,11 @@
+Template: gxde-lsg-rootfs/build
+Type: boolean
+Default: true
+Description: 现在生成 GXDE rootfs 吗？
+ 即将使用 debootstrap 从 Debian 与 GXDE 软件源联网下载约 1 GB 软件包，生成
+ GXDE 兼容层所需的 rootfs。整个过程通常需要 20 分钟以上，完成后约占用 6 GB
+ 磁盘空间；生成期间软件包安装会一直停在“正在设置”，请勿中断。
+ .
+ 选择“否”将跳过，之后可以手动运行：
+   sudo /opt/apps/top.gxde.gxde-lsg/files/gxde-lsg-build-rootfs \
+     --rootfs /opt/apps/top.gxde.gxde-lsg/files/gxde-rootfs
