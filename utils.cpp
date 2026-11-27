@@ -311,3 +311,43 @@ string Utils::hostName()
 	}
 	return name;
 }
+
+string Utils::hostPrettyName()
+{
+	// 按 os-release(5) 的约定：先读 /etc/os-release，不存在再读 /usr/lib/os-release
+	for (const char *path: {"/etc/os-release", "/usr/lib/os-release"}) {
+		std::ifstream file(path);
+		if (!file) {
+			continue;
+		}
+		string line, name;
+		while (std::getline(file, line)) {
+			string *target = nullptr;
+			string value;
+			if (line.rfind("PRETTY_NAME=", 0) == 0) {
+				value = line.substr(12);
+			}
+			else if (line.rfind("NAME=", 0) == 0 && name == "") {
+				value = line.substr(5);
+				target = &name;
+			}
+			else {
+				continue;
+			}
+			if (value.size() >= 2 && (value.front() == '"' || value.front() == '\'') && value.back() == value.front()) {
+				value = value.substr(1, value.size() - 2);
+			}
+			if (!target) {
+				if (value != "") {
+					return value;
+				}
+				continue;
+			}
+			*target = value;
+		}
+		if (name != "") {
+			return name;
+		}
+	}
+	return "Linux";
+}

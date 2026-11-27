@@ -110,6 +110,21 @@ bool Container::loadingLinuxContainer(
 		args.push_back("--bind=/dev/dri");
 		args.push_back("--property=DeviceAllow=char-drm rw");
 	}
+	// 容器内显示的机器名：fastfetch 等工具从 DMI 读取 Host，用宿主机运行期目录中的文件覆盖
+	// product_version 会被拼在名字后面（"名字 (版本)"），一并清空
+	{
+		const string dmiDir = "/run/gxde-lsg/dmi";
+		const string sysDmi = "/sys/devices/virtual/dmi/id";
+		std::error_code ec;
+		std::filesystem::create_directories(dmiDir, ec);
+		std::ofstream(dmiDir + "/product_name", std::ios::trunc) << productNamePrefix << Utils::hostPrettyName() << "\n";
+		std::ofstream(dmiDir + "/product_version", std::ios::trunc);
+		for (const char *field: {"product_name", "product_version"}) {
+			if (std::filesystem::exists(sysDmi + "/" + field, ec) && std::filesystem::exists(dmiDir + "/" + field, ec)) {
+				args.push_back("--bind-ro=" + dmiDir + "/" + field + ":" + sysDmi + "/" + field);
+			}
+		}
+	}
 	// 挂载路径
 	vector<string> path = {"/dev/kvm", "/dev/binder", "/dev/hwbinder", "/dev/vndbinder", 
 		"/dev/ashmem"};

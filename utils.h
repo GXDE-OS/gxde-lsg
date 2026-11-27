@@ -33,6 +33,8 @@ public:
 	static std::string hostWaylandSocket(uid_t uid);
 	static bool hostUser(std::string name, HostUser &user);
 	static std::string hostName();
+	// 宿主机发行版名称（os-release 的 PRETTY_NAME）
+	static std::string hostPrettyName();
 	static std::string linuxKernelVersion();
 	static std::string programPath();
 	static std::string rootfsPath(); 

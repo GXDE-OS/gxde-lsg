@@ -10,6 +10,8 @@ public:
 	static bool isContainerRunning(std::string containerName);
 	// 宿主机 Wayland socket 在容器内的挂载位置
 	static constexpr const char *containerWaylandSocket = "/run/host-wayland/wayland-0";
+	// 容器内 fastfetch 等工具看到的机器名（DMI product_name），后接宿主机发行版名称
+	static constexpr const char *productNamePrefix = "Linux Subsystem for GXDE Compatibility Layer on ";
 	static bool loadingLinuxContainer(std::string containerPath, std::string containerName, const HostUser &user, std::string hostname, bool loadSystemd=true, std::string hostWaylandSocket="");
 	// 容器启动前在 rootfs 中创建/同步与宿主机一致的账户，写入 hostname，生成宿主机语言对应的 locale
 	static bool provisionUser(std::string containerPath, const HostUser &user, std::string hostname, std::string lang = "");
